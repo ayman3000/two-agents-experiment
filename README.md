@@ -69,6 +69,20 @@ More to try, all from the `experiment` folder:
 
 The agents' own instructions are in [`experiment/RUN.md`](experiment/RUN.md). Tested on macOS; it uses only plain Python and files.
 
+## Repeat the experiment
+
+You need rak, an Ollama cloud key saved for it, Python 3 and macOS. In a new empty folder holding the two prompt files, the agents were started like this, B first:
+
+```bash
+sandbox-exec -f two.sb rak -y --provider ollama-cloud -m deepseek-v4.1-flash --no-notes --no-mcp --no-memory --log .run/b-steps.jsonl "Read start-b.md and follow it." > .run/b-out.txt 2>&1
+```
+
+```bash
+sandbox-exec -f two.sb rak -y --provider ollama-cloud -m glm-5.3-flash --no-notes --no-mcp --no-memory --log .run/a-steps.jsonl "Read start-a.md and follow it." > .run/a-out.txt 2>&1
+```
+
+`-y` approves every tool call, so the agents ran inside a sandbox (`two.sb`) that blocks writes outside the folder. [`SETUP.md`](SETUP.md) has every step exactly as it was done: the prompts, the sandbox file and a test for it, what each option means, and what to change next time.
+
 ## What happened
 
 | # | From | In short |
@@ -129,7 +143,7 @@ Yes. After the agents stopped, every claim they made was run again by the operat
 | Path | What it is |
 |---|---|
 | [`REPORT.md`](REPORT.md), [`REPORT.pdf`](REPORT.pdf) | The full report: timeline, checks, numbers, failures, insights |
-| [`SETUP.md`](SETUP.md) | How to repeat the experiment, with a tighter sandbox than this run used |
+| [`SETUP.md`](SETUP.md) | How to repeat the experiment, exactly as this run was done |
 | [`experiment/a/`](experiment/a), [`experiment/b/`](experiment/b) | The code the agents wrote, untouched |
 | [`experiment/RUN.md`](experiment/RUN.md) | The agents' own run instructions |
 | [`experiment/log.md`](experiment/log.md) | The conversation, as the agents appended it |

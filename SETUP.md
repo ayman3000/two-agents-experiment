@@ -1,42 +1,17 @@
-# Two rak agents talking through files: how to run it
+# How to repeat the experiment
 
-This is the exact setup of an experiment run on 21 November 2026. Give this file to Claude on another machine and say: "Run this experiment as written and report what happened."
-
-## The idea
-
-Two rak agents run in the same folder, each on a different model. They cannot talk directly. Each writes its latest message to its own file, reads the other's file, and waits in a shell loop for the next one. Nobody gives them a task: they must argue, choose something to build, and build it in two halves that only work together.
+This is the setup exactly as the run of 21 November 2026 was done: the same folder layout, prompts, sandbox and commands. The run had flaws, and they are listed at the end with the changes that would fix them. Those changes were not part of the run.
 
 ## What you need
 
-- rak 0.1.0-alpha.46 or newer (`rak --version`).
-- An Ollama cloud key already saved for rak (`rak keys` shows whether OLLAMA_API_KEY is set; `rak keys set OLLAMA_API_KEY` saves one). Never print or copy the key.
+- [rak](https://github.com/ayman3000/rak) 0.1.0-alpha.46 or newer (`rak --version`).
+- An Ollama cloud key saved for rak. `rak keys` shows whether `OLLAMA_API_KEY` is set, and `rak keys set OLLAMA_API_KEY` saves one.
 - Python 3, because the agents usually choose to build in Python.
-- macOS for the write barrier below. On Linux, see "Other systems".
+- macOS, for the `sandbox-exec` barrier.
 
-## The files
+## Step 1: an empty folder and the two prompts
 
-Everything lives in one new, empty folder. Below it is called FOLDER (the original was `~/projects/research/two-agents`).
-
-| File | Written by | Read by | How |
-|---|---|---|---|
-| `a.md` | Agent A | Agent B | Replaced each time, holds one message |
-| `b.md` | Agent B | Agent A | Replaced each time, holds one message |
-| `log.md` | Both | The human only | Appended, agents never read it |
-| `a/` | Agent A | Both | A's half of the work |
-| `b/` | Agent B | Both | B's half of the work |
-| `start-a.md`, `start-b.md` | You | The agents | The starting prompts below |
-| LOGS (outside FOLDER) | You | You | rak's step logs and screen output |
-
-Rules that make it work:
-
-- One writer per message file, so messages can't collide.
-- Each message starts with `message N` and ends with `END`, so a half-written file is never taken as a message.
-- A writes odd numbers and B even ones, and each writes only after reading the other's new message. This keeps the shared log in order.
-- The history lives in each agent's own chat. Nothing is read twice.
-
-## Step 1: create the folder and the two prompts
-
-Create FOLDER, then save these two files in it. To change the length, change the round numbers: the run described here used 10 rounds (messages 1 to 20).
+Create a new, empty folder. Below it is called FOLDER. Save these two files in it. They are the prompts used in the run, word for word; the same files are in [`experiment/start-a.md`](experiment/start-a.md) and [`experiment/start-b.md`](experiment/start-b.md).
 
 ### start-a.md
 
@@ -55,7 +30,7 @@ Nobody has told you what to build. The two of you decide, then build it together
 HOW TO TALK TO B
 - Write each message to a.md, replacing the whole file. Line 1 is "message N". The last line is "END". Keep messages short: what you did, what you need, what is wrong.
 - Your messages are numbered 1, 3, 5, … up to 19. B's are numbered 2, 4, 6, … up to 20, in b.md. One round is one message from each of you; the last round is 10 (your message 19 and B's 20).
-- Right after writing a.md, add it to the log with this shell command: { cat a.md; echo; } >> log.md
+- Right after writing a.md, add it to the log with this shell command: cat a.md >> log.md
 - Never edit b.md. Never read log.md: it is for the human.
 - Write only after you have read a new message from B (except message 1, which starts everything).
 
@@ -88,7 +63,7 @@ Nobody has told you what to build. The two of you decide, then build it together
 HOW TO TALK TO A
 - Write each message to b.md, replacing the whole file. Line 1 is "message N". The last line is "END". Keep messages short: what you did, what you need, what is wrong.
 - Your messages are numbered 2, 4, 6, … up to 20. A's are numbered 1, 3, 5, … up to 19, in a.md. One round is one message from each of you; the last round is 10 (A's message 19 and your 20).
-- Right after writing b.md, add it to the log with this shell command: { cat b.md; echo; } >> log.md
+- Right after writing b.md, add it to the log with this shell command: cat b.md >> log.md
 - Never edit a.md. Never read log.md: it is for the human.
 - Write only after you have read a new message from A.
 
@@ -104,17 +79,11 @@ WHEN TO STOP
 After message 20, or earlier if you both write a message whose body is DONE. Then tell the human, in a short report: what you two made, how to run it, and what A did badly.
 ```
 
-One change from the original run: the log command is now `{ cat a.md; echo; } >> log.md`. The original used `cat a.md >> log.md`, and messages ran together in the log when a file had no final line break.
+## Step 2: the barrier
 
-## Step 2: the barrier (macOS)
+The agents run with `-y`, which approves every tool call automatically. So they were run inside a macOS sandbox that blocks every file write in the home folder except the experiment folder and rak's settings folder (rak saves its chats there).
 
-The agents run with `-y`, which means every tool call is approved automatically. To limit the damage a mistake could do, they run inside a macOS sandbox that:
-
-- blocks all file writes in the home folder, except the experiment folder and rak's settings folder
-- blocks writes to rak's key file, sign-in file and MCP list inside that settings folder
-- blocks reading the folders that hold private keys and logins
-
-Save this as `two.sb` somewhere outside FOLDER, replacing HOME, FOLDER and LOGS with full paths. LOGS is a folder outside FOLDER for rak's step logs; the agents are never told about it:
+Save this as `two.sb` outside FOLDER, replacing HOME and FOLDER with full paths:
 
 ```text
 (version 1)
@@ -122,14 +91,9 @@ Save this as `two.sb` somewhere outside FOLDER, replacing HOME, FOLDER and LOGS 
 (deny file-write* (subpath "HOME"))
 (allow file-write* (subpath "FOLDER"))
 (allow file-write* (subpath "HOME/.config/rak"))
-(allow file-write* (subpath "LOGS"))
-(deny file-write* (literal "HOME/.config/rak/.env") (literal "HOME/.config/rak/chatgpt.json") (literal "HOME/.config/rak/mcp.json"))
-(deny file-read* (subpath "HOME/.ssh") (subpath "HOME/.gnupg") (subpath "HOME/.aws") (subpath "HOME/.kube") (subpath "HOME/.docker") (subpath "HOME/Library/Keychains") (literal "HOME/.config/rak/chatgpt.json"))
 ```
 
-Add a `deny file-read*` line for any other private folder on the machine.
-
-Check it before use. The first command must succeed; the other three must fail:
+Test it before use. The first command must succeed and the second must fail with "Operation not permitted":
 
 ```bash
 sandbox-exec -f two.sb touch FOLDER/log.md
@@ -139,51 +103,44 @@ sandbox-exec -f two.sb touch FOLDER/log.md
 sandbox-exec -f two.sb touch HOME/outside-test.tmp
 ```
 
-```bash
-sandbox-exec -f two.sb ls HOME/.ssh
-```
-
-```bash
-sandbox-exec -f two.sb touch HOME/.config/rak/.env
-```
-
-What the barrier still does not do:
-
-- **The network stays open,** because rak needs it to reach the model, and the sandbox cannot limit it to one site. The prompts forbid network use, and the start commands below remove the web search tool, but a shell command could still use the network.
-- **rak's key file stays readable,** because rak itself must read it to get the model key. rak does not pass the key to the commands it runs, but a command could read the file directly.
-- **`/tmp` is writable.** In the original run one agent used it for test folders.
-
-The original run on 21 November used only the first three rules (the write barrier). The read blocks and key-file protection were added afterwards and tested, but not used in that run.
+This barrier blocks writing only. It does not block reading files, and it does not block the network, which the agents need to reach the model.
 
 ## Step 3: start the agents
 
-Start B first, because B begins by waiting. Run both in the background from inside FOLDER, after creating a LOGS folder outside FOLDER (replace LOGS with its full path). In the original run the logs were inside FOLDER and one agent deleted them.
+From inside FOLDER, make a folder for the logs:
+
+```bash
+mkdir -p .run
+```
+
+Start agent B first, because it begins by waiting. Run both in the background, or each in its own terminal.
 
 Agent B:
 
 ```bash
-sandbox-exec -f two.sb rak -y --provider ollama-cloud -m deepseek-v4.1-flash --no-notes --no-mcp --no-memory --tools list_dir,search_files,read_file,write_file,edit_file,apply_patch,run_shell,todo --log LOGS/b-steps.jsonl "Read start-b.md and follow it." > LOGS/b-out.txt 2>&1
+sandbox-exec -f two.sb rak -y --provider ollama-cloud -m deepseek-v4.1-flash --no-notes --no-mcp --no-memory --log .run/b-steps.jsonl "Read start-b.md and follow it." > .run/b-out.txt 2>&1
 ```
 
 Agent A:
 
 ```bash
-sandbox-exec -f two.sb rak -y --provider ollama-cloud -m glm-5.3-flash --no-notes --no-mcp --no-memory --tools list_dir,search_files,read_file,write_file,edit_file,apply_patch,run_shell,todo --log LOGS/a-steps.jsonl "Read start-a.md and follow it." > LOGS/a-out.txt 2>&1
+sandbox-exec -f two.sb rak -y --provider ollama-cloud -m glm-5.3-flash --no-notes --no-mcp --no-memory --log .run/a-steps.jsonl "Read start-a.md and follow it." > .run/a-out.txt 2>&1
 ```
 
-Why each option:
+What each part does:
 
-| Option | Reason |
+| Part | What it does |
 |---|---|
-| `-y` | Nobody is at the keyboard to approve commands. Only use it with the barrier. |
-| A one-off request, not a chat | A one-off run has no limit on model calls; a chat stops a request after 30. In a chat, add `--max-turns 0`. |
-| Two different models | Two copies of one model think alike and catch fewer of each other's mistakes. |
-| `--no-notes` | Otherwise both agents write rak's journal files in the same folder and collide. |
-| `--no-mcp --no-memory` | They don't need browser tools or notes from other work. |
-| `--tools …` | Only file and shell tools: no web search, no helpers, no skills. The original run did not have this option. |
-| `--log` and the output file | So you can see every step afterwards. Keep them outside FOLDER, where the barrier stops the agents writing. |
-
-If a human is present, the safer way is two terminals without `-y` and without the barrier: start `rak` with the same options plus `--max-turns 0`, type `Read start-a.md and follow it.` (or b), and approve as it goes.
+| `sandbox-exec -f two.sb` | Runs everything after it inside the barrier |
+| `rak -y` | Starts the agent and approves every tool call. Nobody is at the keyboard, which is why the barrier matters. |
+| `--provider ollama-cloud` | Runs the model on Ollama's cloud, with your Ollama key |
+| `-m MODEL` | The model: `deepseek-v4.1-flash` for B, `glm-5.3-flash` for A. Two different models catch more of each other's mistakes. |
+| `--no-notes` | Stops rak updating its journal files, which both agents would otherwise write in the same folder |
+| `--no-mcp` | Doesn't connect your MCP servers |
+| `--no-memory` | No notes from earlier rak sessions |
+| `--log FILE` | Writes every step the agent takes to a file |
+| `"Read start-b.md and follow it."` | The request. Given on the command line, rak does this one job and exits, with no limit on the number of steps. |
+| `> FILE 2>&1` | Saves what rak prints to a file |
 
 ## Step 4: watch
 
@@ -191,21 +148,29 @@ If a human is present, the safer way is two terminals without `-y` and without t
 tail -F FOLDER/log.md
 ```
 
-`LOGS/a-out.txt` and `LOGS/b-out.txt` show each agent's tool calls. The run is over when both rak processes have exited; each prints a final report at the end of its output file.
+`.run/a-out.txt` and `.run/b-out.txt` show each agent's tool calls as they happen. The run is over when both rak processes have exited.
 
 ## Step 5: check the result yourself
 
-Read `RUN.md` in FOLDER, run the one command it gives, and compare what happens with what the agents claimed. Read any script before running it.
+Read `RUN.md` in FOLDER, read the scripts, run the one command it gives, and compare what happens with what the agents claimed.
 
-## Things to watch for
+## What went wrong with this setup, and what would fix it
 
-- **Stray tool calls:** in the original run GLM made one unrelated web search in the middle of its work. The `--tools` option above now removes web search.
-- **Loop detector:** rak stops an agent that repeats the same call with the same result. The wait command prints the time so each result differs.
-- **Shell time limit:** a wait is killed after 900 seconds at most. The prompt tells the agent to run it again.
-- **One agent dies or finishes first:** the other waits forever. Stop it by hand (by its process number).
-- **Skipped numbers:** in the original run the agents agreed to jump from message 15 to message 20, and one of them then waited for message 16 for good. If they agree to finish early, expect to stop the waiting one.
-- **Usage:** each round is many model calls per agent, so a long run can reach a plan's limit.
+None of the fixes below were part of the run.
 
-## Other systems
+| What happened | Cause | Fix |
+|---|---|---|
+| Agent A waited for good and had to be stopped by hand | The agents agreed to skip from message 15 to 20, but the wait command looks for one exact number | Tell agents to wait for any number higher than the last one read, and that a final message ends the waiting |
+| Agent B deleted the step logs | The logs were in `.run/` inside FOLDER, and the agents' own program used `.run/` for temporary files | Keep logs in a folder outside FOLDER, and add one `allow file-write*` rule for it to `two.sb` |
+| Agent A made an unrelated web search | The web search tool was available | Add `--tools list_dir,search_files,read_file,write_file,edit_file,apply_patch,run_shell,todo` to both commands |
+| Agent B wrote to `/tmp` | The barrier covers only the home folder | Accept it, or add a `deny file-write*` rule for `/private/tmp` |
+| Messages ran together in the log | A message file had no final line break | Use `{ cat a.md; echo; } >> log.md` in the prompts |
+| Private files stayed readable | The barrier blocks writing only | Add `(deny file-read* (subpath "HOME/.ssh") (subpath "HOME/.gnupg") (subpath "HOME/.aws") (subpath "HOME/Library/Keychains"))`, and `(deny file-write* (literal "HOME/.config/rak/.env"))` so the key file cannot be changed |
 
-`sandbox-exec` exists only on macOS. On Linux this was not tested; the equivalent would be bubblewrap (`bwrap`) with the home folder mounted read-only and FOLDER and `~/.config/rak` mounted writable, or a container with only FOLDER mounted. Without any barrier, run it in two terminals with approvals on instead of `-y`.
+Two gaps remain even with those fixes: the network stays open, because rak needs it to reach the model, and rak's own key file stays readable, because rak must read it. Closing them needs a container or a separate user account.
+
+## Other things to expect
+
+- **Usage:** each agent made about 110 model calls in this run.
+- **One agent dies or finishes first:** the other waits. Stop it by its process number.
+- **Other systems:** `sandbox-exec` exists only on macOS. On Linux the equivalent would be bubblewrap or a container with only FOLDER mounted writable; this was not tested. Without a barrier, start rak in two terminals without `-y`, add `--max-turns 0`, type the request, and approve each step yourself.

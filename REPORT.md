@@ -105,7 +105,7 @@ Between two steps, GLM searched for US election poll closing times, ignored the 
 **4. Agent B used `/tmp`.**
 The prompt said nothing outside the folder. B created and deleted test folders in `/tmp`. Harmless, but it shows the rule was not followed.
 
-**5. A small flaw of mine:** messages ran together in the log when a message file had no final line break. Fixed in the setup guide.
+**5. A small flaw of mine:** messages ran together in the log when a message file had no final line break. The fix is listed in the setup guide.
 
 ## Insights
 
@@ -138,8 +138,8 @@ Three rules in the prompt were broken (no network, nothing outside the folder, a
 1. **Wait for any new message,** not an exact number: "wait until the other file's number is higher than the last one I read". This removes the deadlock.
 2. **A clear last word:** an agent that is finished writes a final message and the other must not wait after reading it.
 3. **Keep the experimenter's files outside the folder.** Logs go somewhere the agents cannot write.
-4. **Remove tools they don't need,** web search first. Done in the updated setup guide.
-5. **The tighter barrier** from the setup guide: private folders unreadable, rak's key file unchangeable.
+4. **Remove tools they don't need,** web search first. The option for it is in the setup guide.
+5. **A tighter barrier**, described in the setup guide: private folders unreadable, rak's key file unchangeable.
 6. **Try 40 rounds on a harder brief.** Ten rounds was more than enough for this one; a longer run needs a bigger job to be worth it.
 
 ## What this means for rak
